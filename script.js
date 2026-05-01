@@ -444,16 +444,19 @@ async function loadAssignments() {
         const text = await response.text();
         const sheetAssignments = parseCsv(text)
             .slice(1)
-            .map(columns => ({
+            .map((columns, rowIndex) => ({
                 number: columns[0] || '',
                 title: columns[1] || '',
                 videoUrl: normalizeDriveUrl(columns[2] || ''),
                 inference: columns[3] || '',
-                date: columns[4] || ''
+                date: columns[4] || '',
+                source: 'sheet',
+                row: rowIndex + 2
             }))
             .filter(item => item.title && item.videoUrl);
 
         const localAssignments = loadLocalAssignments();
+        localAssignments.forEach(item => item.source = 'local');
         const seen = new Set();
         assignments = [...sheetAssignments, ...localAssignments].filter(item => {
             const key = `${item.title.trim().toLowerCase()}|${item.videoUrl}`;
@@ -493,8 +496,7 @@ function renderAssignments() {
         card.className = 'assignment-card';
         card.innerHTML = `
             <div class="assignment-header">
-                <div class="assignment-number">Assignment ${label}</div>
-            </div>
+                <div class="assignment-number">Assignment ${label}</div>                <button class="assignment-delete-btn" onclick="deleteAssignment(${index})">Delete</button>            </div>
             <h4 class="assignment-title">${assignment.title}</h4>
             <div class="video-container" onclick="playVideo(${index})">
                 <iframe class="video-thumbnail" src="${assignment.videoUrl}" allow="autoplay" allowfullscreen></iframe>
@@ -507,6 +509,52 @@ function renderAssignments() {
         `;
         grid.appendChild(card);
     });
+}
+
+function deleteAssignment(index) {
+    const assignment = assignments[index];
+    if (!assignment) return;
+
+    if (!confirm(`Delete "${assignment.title}" from assignments?`)) return;
+
+    if (assignment.source === 'local') {
+        const stored = loadLocalAssignments();
+        const filtered = stored.filter(item => item.videoUrl !== assignment.videoUrl || item.title !== assignment.title);
+        localStorage.setItem('localAssignments', JSON.stringify(filtered));
+        assignments.splice(index, 1);
+        renderAssignments();
+        return;
+    }
+
+    if (!SHEET_API_URL || SHEET_API_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_URL_HERE')) {
+        alert('Sheet delete is not configured. Remove this item directly from the Google Sheet.');
+        return;
+    }
+
+    deleteAssignmentFromSheet(assignment).then(success => {
+        if (success) {
+            assignments.splice(index, 1);
+            renderAssignments();
+        } else {
+            alert('Unable to delete from the sheet. Please remove it directly in Google Sheets.');
+        }
+    });
+}
+
+async function deleteAssignmentFromSheet(assignment) {
+    try {
+        const response = await fetch(SHEET_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', row: assignment.row })
+        });
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data && data.success;
+    } catch (error) {
+        console.error('Sheet delete failed:', error);
+        return false;
+    }
 }
 
 function playVideo(index) {

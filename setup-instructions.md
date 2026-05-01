@@ -26,6 +26,14 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
   }
 
+  if (action === 'delete') {
+    if (!data.row) {
+      return ContentService.createTextOutput(JSON.stringify({success: false, error: 'Row number required'})).setMimeType(ContentService.MimeType.JSON);
+    }
+    sheet.deleteRow(parseInt(data.row, 10));
+    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({success: false, error: 'Unsupported action'})).setMimeType(ContentService.MimeType.JSON);
 }
 
