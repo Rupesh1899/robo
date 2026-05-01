@@ -292,7 +292,8 @@ async function loadAssignments() {
     const tbody = document.getElementById('assignment-table-body');
     
     if (USE_MOCK_DATA) {
-        assignments = [...mockData];
+        const stored = localStorage.getItem('assignments');
+        assignments = stored ? JSON.parse(stored) : [...mockData];
         renderAssignments();
         return;
     }
@@ -353,6 +354,10 @@ function renderAssignments() {
     updateDashboard(assignments);
 }
 
+function saveAssignmentsToStorage() {
+    localStorage.setItem('assignments', JSON.stringify(assignments));
+}
+
 // Event Listeners for Filters
 document.getElementById('search-input').addEventListener('input', renderAssignments);
 document.getElementById('status-filter').addEventListener('change', renderAssignments);
@@ -389,6 +394,7 @@ async function handleAssignmentSubmit(e) {
                 assignmentData.id = Date.now().toString();
                 assignments.push(assignmentData);
             }
+            saveAssignmentsToStorage();
             setTimeout(() => { // simulate delay
                 finishSave();
             }, 500);
@@ -451,6 +457,7 @@ window.deleteAssignment = async function(id) {
 
     if (USE_MOCK_DATA) {
         assignments = assignments.filter(a => a.id !== id);
+        saveAssignmentsToStorage();
         renderAssignments();
         return;
     }
