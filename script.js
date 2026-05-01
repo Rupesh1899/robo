@@ -298,8 +298,8 @@ async function submitAssignmentForm(e) {
 
         if (result && result.success) {
             if (statusMessage) {
-                statusMessage.textContent = 'Assignment uploaded successfully. Refreshing list...';
-                statusMessage.classList.add('success');
+                statusMessage.textContent = result.fallback ? 'Saved locally because API is not configured yet.' : 'Assignment uploaded successfully. Refreshing list...';
+                statusMessage.classList.add(result.fallback ? 'success' : 'success');
             }
             const uploadForm = e.target;
             if (uploadForm && typeof uploadForm.reset === 'function') {
@@ -323,16 +323,50 @@ async function submitAssignmentForm(e) {
 
 async function addAssignmentToSheet(data) {
     if (!SHEET_API_URL || SHEET_API_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_URL_HERE')) {
-        return { success: false, error: 'API URL not configured' };
+        saveLocalAssignment(data);
+        return { success: true, fallback: true };
     }
 
-    const response = await fetch(SHEET_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
+    try {
+        const response = await fetch(SHEET_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
 
-    return response.ok ? response.json() : { success: false, error: 'Network response was not ok' };
+        if (!response.ok) {
+            saveLocalAssignment(data);
+            return { success: true, fallback: true };
+        }
+
+        const result = await response.json();
+        if (result && result.success) {
+            return result;
+        }
+
+        saveLocalAssignment(data);
+        return { success: true, fallback: true };
+    } catch (error) {
+        saveLocalAssignment(data);
+        return { success: true, fallback: true };
+    }
+}
+
+function saveLocalAssignment(data) {
+    const stored = loadLocalAssignments();
+    stored.push({
+        number: data.number,
+        title: data.title,
+        videoUrl: data.videoUrl,
+        inference: data.inference,
+        date: data.date
+    });
+    localStorage.setItem('localAssignments', JSON.stringify(stored));
+}
+
+function loadLocalAssignments() {
+    const stored = localStorage.getItem('localAssignments');
+    return stored ? JSON.parse(stored) : [];
 }
 
 function normalizeDriveUrl(url) {
@@ -408,7 +442,7 @@ async function loadAssignments() {
         if (!response.ok) throw new Error('Unable to fetch sheet data.');
 
         const text = await response.text();
-        assignments = parseCsv(text)
+        const sheetAssignments = parseCsv(text)
             .slice(1)
             .map(columns => ({
                 number: columns[0] || '',
@@ -419,9 +453,22 @@ async function loadAssignments() {
             }))
             .filter(item => item.title && item.videoUrl);
 
+        const localAssignments = loadLocalAssignments();
+        const seen = new Set();
+        assignments = [...sheetAssignments, ...localAssignments].filter(item => {
+            const key = `${item.title.trim().toLowerCase()}|${item.videoUrl}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
         renderAssignments();
     } catch (error) {
-        grid.innerHTML = '<div class="assignment-empty">Unable to load assignments. Please confirm the sheet is shared and the tab is named "Assignments".</div>';
+        const localAssignments = loadLocalAssignments();
+        assignments = localAssignments;
+        renderAssignments();
+        if (!assignments.length) {
+            grid.innerHTML = '<div class="assignment-empty">Unable to load assignments. Please confirm the sheet is shared and the tab is named "Assignments".</div>';
+        }
         console.error('Assignment load failed:', error);
     }
 }

@@ -61,6 +61,8 @@ function doGet(e) {
 2. Replace `YOUR_GOOGLE_APPS_SCRIPT_URL_HERE` with the Web App URL you just copied.
 3. Make sure the same Google Sheet is shared as **Anyone with the link can view** so the site can read assignments.
 
+> If the Apps Script URL is still not configured, the upload form will save assignments locally in your browser so they still appear on the same page.
+
 ### Step 5: Publish Sheet Data for Read Access
 1. In your Google Sheet, click **File > Share > Share with others**.
 2. Set link access to **Anyone with the link can view**.
