@@ -19,51 +19,31 @@ const SHEET_NAME = 'Assignments';
 function doPost(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const data = JSON.parse(e.postData.contents);
-  const action = e.parameter.action;
+  const action = data.action;
 
   if (action === 'add') {
-    sheet.appendRow([data.id, data.title, data.subject, data.date, data.status, data.driveLink, data.notes]);
+    sheet.appendRow([data.number, data.title, data.videoUrl, data.inference, data.date]);
     return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
   }
 
-  if (action === 'update') {
-    const rows = sheet.getDataRange().getValues();
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] == data.id) {
-        sheet.getRange(i + 1, 2, 1, 6).setValues([[data.title, data.subject, data.date, data.status, data.driveLink, data.notes]]);
-        return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-  }
-
-  if (action === 'delete') {
-    const rows = sheet.getDataRange().getValues();
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] == data.id) {
-        sheet.deleteRow(i + 1);
-        return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-  }
+  return ContentService.createTextOutput(JSON.stringify({success: false, error: 'Unsupported action'})).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doGet(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const rows = sheet.getDataRange().getValues();
   const assignments = [];
-  
-  for (let i = 1; i < rows.length; i++) { // Skip headers
+
+  for (let i = 1; i < rows.length; i++) {
     assignments.push({
-      id: rows[i][0],
+      number: rows[i][0],
       title: rows[i][1],
-      subject: rows[i][2],
-      date: rows[i][3],
-      status: rows[i][4],
-      driveLink: rows[i][5],
-      notes: rows[i][6]
+      videoUrl: rows[i][2],
+      inference: rows[i][3],
+      date: rows[i][4]
     });
   }
-  
+
   return ContentService.createTextOutput(JSON.stringify(assignments)).setMimeType(ContentService.MimeType.JSON);
 }
 ```
@@ -78,8 +58,13 @@ function doGet(e) {
 
 ### Step 4: Connect to your Website
 1. Open `script.js` in your project.
-2. Replace `YOUR_GOOGLE_APPS_SCRIPT_URL_HERE` on line 5 with the URL you just copied.
-3. Change `const USE_MOCK_DATA = true;` to `const USE_MOCK_DATA = false;`.
+2. Replace `YOUR_GOOGLE_APPS_SCRIPT_URL_HERE` with the Web App URL you just copied.
+3. Make sure the same Google Sheet is shared as **Anyone with the link can view** so the site can read assignments.
+
+### Step 5: Publish Sheet Data for Read Access
+1. In your Google Sheet, click **File > Share > Share with others**.
+2. Set link access to **Anyone with the link can view**.
+3. No need to share edit access to the public; the upload form writes only through the Apps Script Web App.
 
 ---
 

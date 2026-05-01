@@ -5,7 +5,7 @@
 // --- 1. Global Configurations ---
 const SHEET_ID = '14gHprU2oHbfAJPFiBeHZ48756TPN0FPQNnkWY3zt7cQ';
 const SHEET_NAME = 'Assignments';
-const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?usp=sharing`;
+const SHEET_API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
 let assignments = []; // State array
@@ -18,9 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initProjectFilters();
     initSmoothScroll();
 
-    const openSheetBtn = document.getElementById('open-sheet-btn');
-    if (openSheetBtn) openSheetBtn.addEventListener('click', openSheetManager);
-    
+    const uploadForm = document.getElementById('assignment-upload-form');
+    if (uploadForm) uploadForm.addEventListener('submit', submitAssignmentForm);
+
     // Load Assignments
     loadAssignments();
 });
@@ -253,8 +253,86 @@ function initProjectFilters() {
 
 // --- 9. Assignment Management (Google Sheets) ---
 
-function openSheetManager() {
-    window.open(SHEET_EDIT_URL, '_blank');
+async function submitAssignmentForm(e) {
+    e.preventDefault();
+
+    const titleInput = document.getElementById('upload-title');
+    const linkInput = document.getElementById('upload-link');
+    const inferenceInput = document.getElementById('upload-inference');
+    const dateInput = document.getElementById('upload-date');
+    const numberInput = document.getElementById('upload-number');
+    const statusMessage = document.getElementById('upload-status');
+    const submitBtn = document.getElementById('upload-submit');
+
+    if (!titleInput || !linkInput || !inferenceInput || !submitBtn) return;
+
+    const title = titleInput.value.trim();
+    const link = linkInput.value.trim();
+    const inference = inferenceInput.value.trim();
+    const date = dateInput ? dateInput.value : '';
+    const number = numberInput ? numberInput.value.trim() : '';
+
+    if (!title || !link) {
+        if (statusMessage) statusMessage.textContent = 'Please provide both a title and a valid Drive link.';
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Uploading...';
+    if (statusMessage) {
+        statusMessage.textContent = '';
+        statusMessage.className = 'upload-status';
+    }
+
+    try {
+        const payload = {
+            action: 'add',
+            number: number || String(assignments.length + 1),
+            title,
+            videoUrl: link,
+            inference,
+            date
+        };
+
+        const result = await addAssignmentToSheet(payload);
+
+        if (result && result.success) {
+            if (statusMessage) {
+                statusMessage.textContent = 'Assignment uploaded successfully. Refreshing list...';
+                statusMessage.classList.add('success');
+            }
+            const uploadForm = e.target;
+            if (uploadForm && typeof uploadForm.reset === 'function') {
+                uploadForm.reset();
+            }
+            await loadAssignments();
+        } else {
+            throw new Error(result && result.error ? result.error : 'Upload failed');
+        }
+    } catch (error) {
+        console.error('Upload failed:', error);
+        if (statusMessage) {
+            statusMessage.textContent = 'Upload failed. Check the sheet access and API URL.';
+            statusMessage.classList.add('error');
+        }
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Upload Assignment';
+    }
+}
+
+async function addAssignmentToSheet(data) {
+    if (!SHEET_API_URL || SHEET_API_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_URL_HERE')) {
+        return { success: false, error: 'API URL not configured' };
+    }
+
+    const response = await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+
+    return response.ok ? response.json() : { success: false, error: 'Network response was not ok' };
 }
 
 function normalizeDriveUrl(url) {

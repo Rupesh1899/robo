@@ -271,11 +271,44 @@
         
         <div class="assignments-container glass">
             <div class="assignments-header">
-                <h2>My Assignments</h2>
-                <button class="btn btn-primary" id="open-sheet-btn">Manage Assignments</button>
+                <div>
+                    <h2>My Assignments</h2>
+                    <p class="assignment-intro">Upload a Drive link and title here; the assignment will appear below on the same page.</p>
+                </div>
                 <div class="assignment-stats">
                     <span>Total: <span id="totalAssignments">0</span></span>
                 </div>
+            </div>
+
+            <div class="assignment-upload-panel glass">
+                <form id="assignment-upload-form" class="assignment-upload-form">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="upload-title">Assignment Title</label>
+                            <input type="text" id="upload-title" placeholder="Enter assignment title" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="upload-number">Assignment Number</label>
+                            <input type="text" id="upload-number" placeholder="Optional - e.g. 1">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="upload-link">Google Drive Video Link</label>
+                        <input type="url" id="upload-link" placeholder="https://drive.google.com/file/d/..." required>
+                    </div>
+                    <div class="input-group">
+                        <label for="upload-inference">Technical Analysis / Notes</label>
+                        <textarea id="upload-inference" rows="4" placeholder="Describe the assignment or analysis"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label for="upload-date">Date (optional)</label>
+                        <input type="date" id="upload-date">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="upload-submit">Upload Assignment</button>
+                    </div>
+                    <div id="upload-status" class="upload-status"></div>
+                </form>
             </div>
 
             <div class="assignments-grid" id="assignmentsGrid">
