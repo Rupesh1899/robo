@@ -7,6 +7,7 @@ This guide will walk you through setting up your Assignment Management System wi
 ### Step 1: Create a Google Sheet
 1. Create a new Google Sheet.
 2. In row 1, add these exact headers: `id`, `title`, `subject`, `date`, `status`, `driveLink`, `notes`.
+   - If your sheet is currently empty, this header row must exist before the portfolio can load assignments.
 3. Rename the sheet tab at the bottom to `Assignments`.
 
 ### Step 2: Add Google Apps Script

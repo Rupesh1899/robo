@@ -490,7 +490,7 @@ function renderAssignments() {
     grid.innerHTML = '';
 
     if (!assignments.length) {
-        grid.innerHTML = '<div class="assignment-empty">No assignments found. Use the sheet manager button to add rows to the Google Sheet.</div>';
+        grid.innerHTML = '<div class="assignment-empty">No assignments found. If your Google Sheet is blank, add a header row with exactly: id,title,subject,date,status,driveLink,notes, then refresh this page.</div>';
         return;
     }
 
