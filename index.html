@@ -280,6 +280,10 @@
                 </div>
             </div>
 
+            <div class="assignment-tools">
+                <button type="button" class="btn btn-outline" id="open-assignment-manager" onclick="openAssignmentManager()"><i class="fa-solid fa-sliders"></i> Manage All</button>
+            </div>
+
             <div class="assignment-upload-panel glass">
                 <form id="assignment-upload-form" class="assignment-upload-form">
                     <div class="form-row">
@@ -316,6 +320,24 @@
             </div>
         </div>
     </section>
+
+    <!-- Assignment Manager Modal -->
+    <div id="assignment-manager-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Assignments</h2>
+                <button class="modal-close" onclick="closeAssignmentManager()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="manager-list" class="assignment-manager-list">
+                    <div class="loading">Loading assignments...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeAssignmentManager()">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Contact Section -->
     <section id="contact" class="contact-section section-padding">

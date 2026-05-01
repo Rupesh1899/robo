@@ -625,3 +625,143 @@ function animateValue(id, start, end, duration) {
     };
     window.requestAnimationFrame(step);
 }
+
+// --- 11. Assignment Manager Modal ---
+function openAssignmentManager() {
+    const modal = document.getElementById('assignment-manager-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    renderAssignmentManager();
+}
+
+function closeAssignmentManager() {
+    const modal = document.getElementById('assignment-manager-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderAssignmentManager() {
+    const listDiv = document.getElementById('manager-list');
+    if (!listDiv) return;
+
+    if (!assignments.length) {
+        listDiv.innerHTML = '<div class="empty-message">No assignments yet. Upload one using the form above.</div>';
+        return;
+    }
+
+    listDiv.innerHTML = '';
+    assignments.forEach((assignment, index) => {
+        const row = document.createElement('div');
+        row.className = 'manager-item';
+        row.innerHTML = `
+            <div class="manager-item-info">
+                <h4>${assignment.title}</h4>
+                <p class="manager-meta">
+                    ${assignment.number ? `Assignment #${assignment.number} | ` : ''}
+                    <span class="source-badge ${assignment.source}">${assignment.source === 'sheet' ? 'From Sheet' : 'Local'}</span>
+                </p>
+                ${assignment.date ? `<p class="manager-date"><i class="fa-solid fa-calendar"></i> ${assignment.date}</p>` : ''}
+                ${assignment.inference ? `<p class="manager-notes">${assignment.inference}</p>` : ''}
+            </div>
+            <div class="manager-actions">
+                <button class="manager-btn edit-btn" onclick="editAssignmentModal(${index})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                <button class="manager-btn delete-btn" onclick="deleteAssignmentFromManager(${index})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+        listDiv.appendChild(row);
+    });
+}
+
+function editAssignmentModal(index) {
+    const assignment = assignments[index];
+    if (!assignment) return;
+
+    const editForm = `
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:4000;" id="edit-form-overlay" onclick="if(event.target.id==='edit-form-overlay')closeEditForm()">
+            <div style="background:var(--bg-secondary);border-radius:12px;padding:2rem;width:90%;max-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <h3 style="margin-top:0;color:var(--primary-color);">Edit Assignment</h3>
+                <form id="edit-assignment-form" style="display:flex;flex-direction:column;gap:1rem;">
+                    <div>
+                        <label style="display:block;margin-bottom:0.5rem;font-weight:500;">Title</label>
+                        <input type="text" id="edit-title" value="${assignment.title}" style="width:100%;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:0.5rem;font-weight:500;">Assignment Number</label>
+                        <input type="text" id="edit-number" value="${assignment.number || ''}" style="width:100%;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:0.5rem;font-weight:500;">Technical Analysis</label>
+                        <textarea id="edit-inference" style="width:100%;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;resize:vertical;min-height:100px;">${assignment.inference || ''}</textarea>
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:0.5rem;font-weight:500;">Date</label>
+                        <input type="date" id="edit-date" value="${assignment.date || ''}" style="width:100%;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;">
+                    </div>
+                    <div style="display:flex;gap:1rem;margin-top:1rem;">
+                        <button type="button" class="btn btn-primary" style="flex:1;" onclick="saveEditedAssignment(${index})">Save Changes</button>
+                        <button type="button" class="btn btn-outline" style="flex:1;" onclick="closeEditForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', editForm);
+}
+
+function closeEditForm() {
+    const overlay = document.getElementById('edit-form-overlay');
+    if (overlay) overlay.remove();
+}
+
+function saveEditedAssignment(index) {
+    const assignment = assignments[index];
+    if (!assignment) return;
+
+    const newTitle = document.getElementById('edit-title').value.trim();
+    const newNumber = document.getElementById('edit-number').value.trim();
+    const newInference = document.getElementById('edit-inference').value.trim();
+    const newDate = document.getElementById('edit-date').value;
+
+    if (!newTitle) {
+        alert('Title cannot be empty');
+        return;
+    }
+
+    assignment.title = newTitle;
+    assignment.number = newNumber;
+    assignment.inference = newInference;
+    assignment.date = newDate;
+
+    // Save to localStorage if it's a local assignment
+    if (assignment.source === 'local') {
+        const stored = loadLocalAssignments();
+        const storedIndex = stored.findIndex(a => a.videoUrl === assignment.videoUrl);
+        if (storedIndex !== -1) {
+            stored[storedIndex] = assignment;
+            localStorage.setItem('localAssignments', JSON.stringify(stored));
+        }
+    }
+
+    closeEditForm();
+    renderAssignmentManager();
+    renderAssignments();
+}
+
+function deleteAssignmentFromManager(index) {
+    const assignment = assignments[index];
+    if (!assignment) return;
+
+    if (!confirm(`Delete "${assignment.title}"?`)) return;
+
+    if (assignment.source === 'local') {
+        const stored = loadLocalAssignments();
+        const filtered = stored.filter(item => item.videoUrl !== assignment.videoUrl || item.title !== assignment.title);
+        localStorage.setItem('localAssignments', JSON.stringify(filtered));
+        assignments.splice(index, 1);
+        renderAssignmentManager();
+        renderAssignments();
+        return;
+    }
+
+    // For sheet items, show a friendly message
+    alert('This assignment is from your Google Sheet. To delete it, remove the row from your Google Sheet and refresh this page.');
+}
