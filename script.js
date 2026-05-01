@@ -369,6 +369,10 @@ function loadLocalAssignments() {
     return stored ? JSON.parse(stored) : [];
 }
 
+function isSheetApiConfigured() {
+    return Boolean(SHEET_API_URL && !SHEET_API_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'));
+}
+
 function normalizeDriveUrl(url) {
     if (!url) return '';
     if (url.includes('/preview')) return url;
@@ -492,11 +496,18 @@ function renderAssignments() {
 
     assignments.forEach((assignment, index) => {
         const label = assignment.number || index + 1;
+        const sheetDeleteDisabled = assignment.source === 'sheet' && !isSheetApiConfigured();
+        const deleteButtonHtml = sheetDeleteDisabled
+            ? `<button class="assignment-delete-btn disabled" disabled title="Configure SHEET_API_URL in script.js to enable sheet delete">Delete</button>`
+            : `<button class="assignment-delete-btn" onclick="deleteAssignment(${index})">Delete</button>`;
+
         const card = document.createElement('div');
         card.className = 'assignment-card';
         card.innerHTML = `
             <div class="assignment-header">
-                <div class="assignment-number">Assignment ${label}</div>                <button class="assignment-delete-btn" onclick="deleteAssignment(${index})">Delete</button>            </div>
+                <div class="assignment-number">Assignment ${label}</div>
+                ${deleteButtonHtml}
+            </div>
             <h4 class="assignment-title">${assignment.title}</h4>
             <div class="video-container" onclick="playVideo(${index})">
                 <iframe class="video-thumbnail" src="${assignment.videoUrl}" allow="autoplay" allowfullscreen></iframe>
@@ -526,8 +537,8 @@ function deleteAssignment(index) {
         return;
     }
 
-    if (!SHEET_API_URL || SHEET_API_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_URL_HERE')) {
-        alert('Sheet delete is not configured. Remove this item directly from the Google Sheet.');
+    if (assignment.source === 'sheet' && !isSheetApiConfigured()) {
+        alert('Sheet delete is not configured. To enable delete, set SHEET_API_URL in script.js to your Apps Script Web App URL.');
         return;
     }
 
