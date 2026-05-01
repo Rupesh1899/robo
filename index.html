@@ -266,45 +266,20 @@
     <!-- Assignment Management System Section -->
     <section id="assignments" class="assignments-section section-padding">
         <div class="section-heading">
-            <h2>Manage <span>Assignments</span></h2>
+            <h2>My <span>Assignments</span></h2>
         </div>
         
         <div class="assignments-container glass">
-            <div class="table-controls">
-                <div class="search-box">
-                    <i class="fa-solid fa-search"></i>
-                    <input type="text" id="search-input" placeholder="Search assignments...">
+            <div class="assignments-header">
+                <h2>My Assignments</h2>
+                <button class="btn btn-primary" id="open-sheet-btn">Manage Assignments</button>
+                <div class="assignment-stats">
+                    <span>Total: <span id="totalAssignments">0</span></span>
                 </div>
-                <div class="filter-box">
-                    <select id="status-filter">
-                        <option value="all">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                    </select>
-                </div>
-                <button class="btn btn-primary" id="btn-add-assignment"><i class="fa-solid fa-plus"></i> Add New</button>
             </div>
 
-            <div class="table-responsive">
-                <table class="assignment-table">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Subject</th>
-                            <th>Submission Date <i class="fa-solid fa-sort" id="sort-date" style="cursor:pointer"></i></th>
-                            <th>Status</th>
-                            <th>File</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="assignment-table-body">
-                        <!-- Data will be populated via JS -->
-                        <tr>
-                            <td colspan="6" class="text-center">Loading assignments...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="assignments-grid" id="assignmentsGrid">
+                <div class="assignment-empty">Loading assignments...</div>
             </div>
         </div>
     </section>
@@ -346,66 +321,6 @@
     <button id="back-to-top" aria-label="Back to top">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
-
-    <!-- Add/Edit Assignment Modal -->
-    <div class="modal" id="assignment-modal">
-        <div class="modal-content glass">
-            <div class="modal-header">
-                <h3 id="modal-title">Add Assignment</h3>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="assignment-form">
-                    <input type="hidden" id="assignment-id">
-                    <div class="input-group">
-                        <label for="a-title">Assignment Title</label>
-                        <input type="text" id="a-title" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="a-subject">Subject</label>
-                        <input type="text" id="a-subject" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="a-date">Submission Date</label>
-                        <input type="date" id="a-date" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="a-status">Status</label>
-                        <select id="a-status" required>
-                            <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Completed</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label for="a-link">Google Drive Link</label>
-                        <input type="url" id="a-link" placeholder="https://drive.google.com/..." required>
-                    </div>
-                    <div class="input-group">
-                        <label for="a-notes">Notes</label>
-                        <textarea id="a-notes" rows="3"></textarea>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-outline close-modal-btn">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="btn-save-assignment">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- View File Modal -->
-    <div class="modal" id="view-file-modal">
-        <div class="modal-content glass" style="max-width: 800px; width: 95%; height: 80vh; display: flex; flex-direction: column;">
-            <div class="modal-header">
-                <h3 id="view-file-title">View Assignment</h3>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body" style="flex: 1; padding: 0;">
-                <iframe id="file-iframe" src="" style="width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
-            </div>
-        </div>
-    </div>
 
     <!-- GSAP for Animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>

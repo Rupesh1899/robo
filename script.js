@@ -3,9 +3,10 @@
  */
 
 // --- 1. Global Configurations ---
-// Replace this with your deployed Google Apps Script Web App URL
-const GAS_API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'; 
-const USE_MOCK_DATA = true; // Set to false when GAS_API_URL is ready
+const SHEET_ID = '14gHprU2oHbfAJPFiBeHZ48756TPN0FPQNnkWY3zt7cQ';
+const SHEET_NAME = 'Assignments';
+const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?usp=sharing`;
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
 let assignments = []; // State array
 
@@ -15,8 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initTypingEffect();
     initMobileMenu();
     initProjectFilters();
-    initModals();
     initSmoothScroll();
+
+    const openSheetBtn = document.getElementById('open-sheet-btn');
+    if (openSheetBtn) openSheetBtn.addEventListener('click', openSheetManager);
     
     // Load Assignments
     loadAssignments();
@@ -248,259 +251,151 @@ function initProjectFilters() {
     });
 }
 
-// --- 8. Modals Management ---
-function initModals() {
-    const modal = document.getElementById('assignment-modal');
-    const btnAdd = document.getElementById('btn-add-assignment');
-    const closeBtns = document.querySelectorAll('.close-modal, .close-modal-btn');
-    const form = document.getElementById('assignment-form');
+// --- 9. Assignment Management (Google Sheets) ---
 
-    btnAdd.addEventListener('click', () => {
-        document.getElementById('modal-title').textContent = 'Add Assignment';
-        form.reset();
-        document.getElementById('assignment-id').value = '';
-        modal.classList.add('show');
-    });
-
-    closeBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const m = e.target.closest('.modal');
-            if (m) m.classList.remove('show');
-            const iframe = document.getElementById('file-iframe');
-            if (iframe) iframe.src = '';
-        });
-    });
-
-    // Close on outside click
-    window.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal')) {
-            e.target.classList.remove('show');
-            const iframe = document.getElementById('file-iframe');
-            if (iframe) iframe.src = '';
-        }
-    });
-
-    // Form Submit
-    form.addEventListener('submit', handleAssignmentSubmit);
+function openSheetManager() {
+    window.open(SHEET_EDIT_URL, '_blank');
 }
 
-// --- 9. Assignment Management (Google Sheets / Mock) ---
+function normalizeDriveUrl(url) {
+    if (!url) return '';
+    if (url.includes('/preview')) return url;
+    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+        return `https://drive.google.com/file/d/${match[1]}/preview`;
+    }
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) {
+        return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
+    }
+    return url;
+}
 
-const mockData = [];
+function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let current = '';
+    let inQuotes = false;
 
-async function loadAssignments() {
-    const tbody = document.getElementById('assignment-table-body');
-    
-    if (USE_MOCK_DATA) {
-        const stored = localStorage.getItem('assignments');
-        assignments = stored ? JSON.parse(stored) : [...mockData];
-        renderAssignments();
-        return;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+            continue;
+        }
+
+        if (char === ',' && !inQuotes) {
+            row.push(current.trim());
+            current = '';
+            continue;
+        }
+
+        if ((char === '\n' || char === '\r') && !inQuotes) {
+            if (current.length || row.length) {
+                row.push(current.trim());
+                rows.push(row);
+                row = [];
+                current = '';
+            }
+            continue;
+        }
+
+        current += char;
     }
 
+    if (current.length || row.length) {
+        row.push(current.trim());
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+async function loadAssignments() {
+    const grid = document.getElementById('assignmentsGrid');
+    const totalSpan = document.getElementById('totalAssignments');
+
+    if (!grid || !totalSpan) return;
+    grid.innerHTML = '<div class="assignment-empty">Loading assignments...</div>';
+
     try {
-        const response = await fetch(`${GAS_API_URL}?action=get`);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        assignments = data;
+        const response = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Unable to fetch sheet data.');
+
+        const text = await response.text();
+        assignments = parseCsv(text)
+            .slice(1)
+            .map(columns => ({
+                number: columns[0] || '',
+                title: columns[1] || '',
+                videoUrl: normalizeDriveUrl(columns[2] || ''),
+                inference: columns[3] || '',
+                date: columns[4] || ''
+            }))
+            .filter(item => item.title && item.videoUrl);
+
         renderAssignments();
     } catch (error) {
-        console.error('Error fetching assignments:', error);
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Failed to load data. Please check connection.</td></tr>`;
+        grid.innerHTML = '<div class="assignment-empty">Unable to load assignments. Please confirm the sheet is shared and the tab is named "Assignments".</div>';
+        console.error('Assignment load failed:', error);
     }
 }
 
 function renderAssignments() {
-    const tbody = document.getElementById('assignment-table-body');
-    const searchInput = document.getElementById('search-input').value.toLowerCase();
-    const statusFilter = document.getElementById('status-filter').value;
+    const grid = document.getElementById('assignmentsGrid');
+    const totalSpan = document.getElementById('totalAssignments');
 
-    tbody.innerHTML = '';
+    if (!grid || !totalSpan) return;
 
-    // Filter Logic
-    let filtered = assignments.filter(item => {
-        const matchesSearch = item.title.toLowerCase().includes(searchInput) || item.subject.toLowerCase().includes(searchInput);
-        const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    totalSpan.textContent = assignments.length;
+    grid.innerHTML = '';
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center">No assignments found.</td></tr>`;
-        updateDashboard(filtered);
+    if (!assignments.length) {
+        grid.innerHTML = '<div class="assignment-empty">No assignments found. Use the sheet manager button to add rows to the Google Sheet.</div>';
         return;
     }
 
-    filtered.forEach(a => {
-        let statusClass = '';
-        if (a.status === 'Pending') statusClass = 'status-pending';
-        if (a.status === 'In Progress') statusClass = 'status-progress';
-        if (a.status === 'Completed') statusClass = 'status-completed';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${a.title}</strong><br><small class="text-muted">${a.notes || ''}</small></td>
-            <td>${a.subject}</td>
-            <td>${a.date}</td>
-            <td><span class="status-badge ${statusClass}">${a.status}</span></td>
-            <td><button onclick="viewAssignmentFile('${a.driveLink}', '${a.title.replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline"><i class="fa-solid fa-eye"></i> View</button></td>
-            <td class="action-btns">
-                <button class="edit-btn" onclick="editAssignment('${a.id}')" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button class="delete-btn" onclick="deleteAssignment('${a.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
-            </td>
+    assignments.forEach((assignment, index) => {
+        const label = assignment.number || index + 1;
+        const card = document.createElement('div');
+        card.className = 'assignment-card';
+        card.innerHTML = `
+            <div class="assignment-header">
+                <div class="assignment-number">Assignment ${label}</div>
+            </div>
+            <h4 class="assignment-title">${assignment.title}</h4>
+            <div class="video-container" onclick="playVideo(${index})">
+                <iframe class="video-thumbnail" src="${assignment.videoUrl}" allow="autoplay" allowfullscreen></iframe>
+                <div class="play-overlay">Play</div>
+            </div>
+            <div class="inference-section">
+                <div class="inference-title">Technical Analysis</div>
+                <div class="inference-text">${assignment.inference || 'No technical analysis provided yet.'}</div>
+            </div>
         `;
-        tbody.appendChild(tr);
+        grid.appendChild(card);
     });
-
-    updateDashboard(assignments);
 }
 
-function saveAssignmentsToStorage() {
-    localStorage.setItem('assignments', JSON.stringify(assignments));
-}
+function playVideo(index) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:3000;';
+    overlay.onclick = () => document.body.removeChild(overlay);
 
-// Event Listeners for Filters
-document.getElementById('search-input').addEventListener('input', renderAssignments);
-document.getElementById('status-filter').addEventListener('change', renderAssignments);
-
-// Form Submission (Add/Edit)
-async function handleAssignmentSubmit(e) {
-    e.preventDefault();
-    
-    const id = document.getElementById('assignment-id').value;
-    const assignmentData = {
-        title: document.getElementById('a-title').value,
-        subject: document.getElementById('a-subject').value,
-        date: document.getElementById('a-date').value,
-        status: document.getElementById('a-status').value,
-        driveLink: document.getElementById('a-link').value,
-        notes: document.getElementById('a-notes').value
-    };
-
-    const submitBtn = document.getElementById('btn-save-assignment');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-    submitBtn.disabled = true;
-
-    try {
-        if (USE_MOCK_DATA) {
-            if (id) {
-                // Edit
-                const index = assignments.findIndex(a => a.id === id);
-                if (index > -1) {
-                    assignments[index] = { ...assignments[index], ...assignmentData };
-                }
-            } else {
-                // Add
-                assignmentData.id = Date.now().toString();
-                assignments.push(assignmentData);
-            }
-            saveAssignmentsToStorage();
-            setTimeout(() => { // simulate delay
-                finishSave();
-            }, 500);
-        } else {
-            // Real API Call
-            const action = id ? 'update' : 'add';
-            if (id) assignmentData.id = id;
-
-            const response = await fetch(`${GAS_API_URL}?action=${action}`, {
-                method: 'POST',
-                body: JSON.stringify(assignmentData)
-            });
-            const result = await response.json();
-            if (result.success) {
-                await loadAssignments();
-                finishSave();
-            } else {
-                alert('Failed to save data.');
-                resetBtn();
-            }
-        }
-    } catch (error) {
-        console.error(error);
-        alert('Error saving assignment.');
-        resetBtn();
-    }
-
-    function finishSave() {
-        document.getElementById('assignment-modal').classList.remove('show');
-        renderAssignments();
-        resetBtn();
-    }
-
-    function resetBtn() {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    }
-}
-
-// Edit
-window.editAssignment = function(id) {
-    const assignment = assignments.find(a => a.id === id);
-    if (!assignment) return;
-
-    document.getElementById('modal-title').textContent = 'Edit Assignment';
-    document.getElementById('assignment-id').value = assignment.id;
-    document.getElementById('a-title').value = assignment.title;
-    document.getElementById('a-subject').value = assignment.subject;
-    document.getElementById('a-date').value = assignment.date;
-    document.getElementById('a-status').value = assignment.status;
-    document.getElementById('a-link').value = assignment.driveLink || '';
-    document.getElementById('a-notes').value = assignment.notes;
-
-    document.getElementById('assignment-modal').classList.add('show');
-}
-
-// Delete
-window.deleteAssignment = async function(id) {
-    if (!confirm('Are you sure you want to delete this assignment?')) return;
-
-    if (USE_MOCK_DATA) {
-        assignments = assignments.filter(a => a.id !== id);
-        saveAssignmentsToStorage();
-        renderAssignments();
-        return;
-    }
-
-    try {
-        const response = await fetch(`${GAS_API_URL}?action=delete`, {
-            method: 'POST',
-            body: JSON.stringify({ id })
-        });
-        const result = await response.json();
-        if (result.success) {
-            await loadAssignments();
-        } else {
-            alert('Failed to delete.');
-        }
-    } catch(err) {
-        console.error(err);
-        alert('Error deleting assignment.');
-    }
-}
-
-// View File in Iframe
-window.viewAssignmentFile = function(link, title) {
-    if (!link || link === '#' || link === 'undefined') {
-        alert("No valid link provided for this assignment.");
-        return;
-    }
-    
-    // Convert standard drive link to preview link for embedding
-    let embedLink = link;
-    if (link.includes('drive.google.com/file/d/')) {
-        const fileIdMatch = link.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch && fileIdMatch[1]) {
-            embedLink = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
-        }
-    } else if (link.includes('docs.google.com/spreadsheets/d/')) {
-        // Handle sheets specifically if needed
-        embedLink = link.replace('/edit?usp=sharing', '/preview');
-    }
-
-    document.getElementById('view-file-title').textContent = title || 'View Assignment';
-    document.getElementById('file-iframe').src = embedLink;
-    document.getElementById('view-file-modal').classList.add('show');
+    const frame = document.createElement('iframe');
+    frame.src = assignments[index].videoUrl;
+    frame.allow = 'autoplay';
+    frame.allowFullscreen = true;
+    frame.style.cssText = 'width:100%;max-width:900px;height:70vh;border:0;border-radius:16px;';
+    overlay.appendChild(frame);
+    document.body.appendChild(overlay);
 }
 
 // --- 10. Dashboard Logic ---
